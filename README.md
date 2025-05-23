@@ -17,37 +17,32 @@ Este proyecto simula un sistema distribuido para la gestión de préstamos, devo
 ```
 prestamo_libros/
 │
-├── Makefile                    # Compila solicitante y receptor
+├── Makefile                    # Compilador del proyecto
 │
-├── receptor.c                  # Proceso RP (lee pipe, atiende solicitudes, crea hilos)
-├── solicitante.c               # Proceso PS (archivo o menú interactivo)
-│
-├── hilos/
-│   ├── hilo_aux1.c             # Hilo productor/consumidor: devolución y renovación
-│   ├── hilo_aux2.c             # Hilo para comandos del usuario ('s', 'r')
-│   └── hilos.h                 # Declaraciones de los hilos
-│
-├── bd/
-│   ├── base_datos.c            # Funciones para leer y escribir libros
-│   ├── utilidades.c            # Funciones auxiliares (fechas, impresión, validaciones)
-│   └── tipos.h                 # Estructuras: Libro, Ejemplar, Solicitud, enums, defines
+├── src/                        # Código fuente (C y H)
+│   ├── receptor.c              # Proceso RP
+│   ├── solicitante.c           # Proceso PS
+│   ├── hilos/
+│   │   ├── hilo_aux1.c         # Hilo devolución/renovación
+│   │   ├── hilo_aux2.c         # Hilo comandos consola
+│   │   └── hilos.h             # Declaraciones
+│   ├── bd/
+│   │   ├── base_datos.c        # Manipulación de BD
+│   │   ├── utilidades.c        # Validaciones, fechas, etc.
+│   │   └── tipos.h             # Estructuras y constantes
 │
 ├── datos/
-│   ├── base_datos.txt          # Base de datos inicial de libros
-│   ├── archivo_solicitudes.txt # Solicitudes de entrada del PS (-i)
-│   └── reporte_salida.txt      # Archivo de salida generado por el RP (-s)
+│   ├── base_datos.txt          # Información de libros
+│   ├── archivo_solicitudes.txt # Solicitudes PS (-i)
+│   └── reporte_salida.txt      # Salida final (-s)
 │
-└── informe_proyecto.pdf        # Informe explicando el diseño, pruebas y resultados
+├── bin/                        # Ejecutables (opcional)
+│   ├── receptor
+│   └── solicitante
+│
+└── doc/
+    └── informe_proyecto.pdf    # Documento del proyecto
 
-
----
-
-## ⚙️ Compilación
-
-El proyecto se compila desde consola de Linux usando el `makefile`:
-
-```bash
-make all
 ```
 
 Esto genera dos ejecutables:
