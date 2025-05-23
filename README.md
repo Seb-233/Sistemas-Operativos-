@@ -2,7 +2,7 @@
 
 Proyecto para el curso **Sistemas Operativos (SIU4085)**  
 Pontificia Universidad Javeriana – Mayo 2025  
-Autores: [Nombre Persona 1], [Nombre Persona 2]  
+ 
 
 ---
 
