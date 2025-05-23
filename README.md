@@ -15,16 +15,30 @@ Este proyecto simula un sistema distribuido para la gestión de préstamos, devo
 ## 🧱 Estructura del Proyecto
 
 ```
-📁 proyecto/
-├── solicitante.c           # Código del proceso solicitante (usuario)
-├── receptor.c              # Código del proceso receptor
-├── base_datos.txt          # Archivo de base de datos inicial (libros)
-├── entrada.txt             # Archivo de solicitudes (modo automático)
-├── funciones.h/.c          # Funciones auxiliares para lectura/escritura BD
-├── makefile                # Compilación automatizada
-├── README.md               # Este archivo
-└── informe.pdf             # Informe técnico del proyecto (entrega final)
-```
+prestamo_libros/
+│
+├── Makefile                    # Compila solicitante y receptor
+│
+├── receptor.c                  # Proceso RP (lee pipe, atiende solicitudes, crea hilos)
+├── solicitante.c               # Proceso PS (archivo o menú interactivo)
+│
+├── hilos/
+│   ├── hilo_aux1.c             # Hilo productor/consumidor: devolución y renovación
+│   ├── hilo_aux2.c             # Hilo para comandos del usuario ('s', 'r')
+│   └── hilos.h                 # Declaraciones de los hilos
+│
+├── bd/
+│   ├── base_datos.c            # Funciones para leer y escribir libros
+│   ├── utilidades.c            # Funciones auxiliares (fechas, impresión, validaciones)
+│   └── tipos.h                 # Estructuras: Libro, Ejemplar, Solicitud, enums, defines
+│
+├── datos/
+│   ├── base_datos.txt          # Base de datos inicial de libros
+│   ├── archivo_solicitudes.txt # Solicitudes de entrada del PS (-i)
+│   └── reporte_salida.txt      # Archivo de salida generado por el RP (-s)
+│
+└── informe_proyecto.pdf        # Informe explicando el diseño, pruebas y resultados
+
 
 ---
 
