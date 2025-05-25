@@ -3,18 +3,21 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
+#include <sys/stat.h>
 
 #define MAX_LIBRO 100
+#define MAX_PIPE 100
 
 typedef struct {
-    char operacion;              // 'D', 'R', 'P', 'Q'
+    char operacion;                  // 'D', 'R', 'P', 'Q'
     char nombreLibro[MAX_LIBRO];
     int isbn;
+    char pipeRespuesta[MAX_PIPE];   // Pipe para respuesta del RP
 } Mensaje;
 
 // Leer desde archivo
-
-void leerDesdeArchivo(const char *archivo, const char *pipe) {
+void leerDesdeArchivo(const char *archivo, const char *pipe, const char *pipeRespuesta) {
     FILE *f = fopen(archivo, "r");
     if (!f) {
         perror("No se pudo abrir el archivo de entrada");
@@ -33,8 +36,23 @@ void leerDesdeArchivo(const char *archivo, const char *pipe) {
 
     while (fgets(linea, sizeof(linea), f)) {
         if (sscanf(linea, " %c, %99[^,], %d", &msg.operacion, msg.nombreLibro, &msg.isbn) == 3) {
+            strcpy(msg.pipeRespuesta, pipeRespuesta);
             write(fd, &msg, sizeof(Mensaje));
             printf("Enviado: %c, %s, %d\n", msg.operacion, msg.nombreLibro, msg.isbn);
+
+            // Esperar y leer respuesta
+            printf("Esperando respuesta del RP...\n");
+            int fdResp = open(pipeRespuesta, O_RDONLY);
+            if (fdResp != -1) {
+                char buffer[256];
+                int n = read(fdResp, buffer, sizeof(buffer));
+                buffer[n > 0 ? n : 0] = '\0';
+                close(fdResp);
+                printf("Respuesta del RP: %s\n", buffer);
+            } else {
+                perror("No se pudo leer respuesta del RP");
+            }
+
         } else {
             printf("Línea malformada: %s", linea);
         }
@@ -44,8 +62,8 @@ void leerDesdeArchivo(const char *archivo, const char *pipe) {
     fclose(f);
 }
 
-// Leer desde menu
-void leerDesdeMenu(const char *pipe) {
+// Leer desde menú
+void leerDesdeMenu(const char *pipe, const char *pipeRespuesta) {
     int fd = open(pipe, O_WRONLY);
     if (fd == -1) {
         perror("No se pudo abrir el pipe");
@@ -61,26 +79,51 @@ void leerDesdeMenu(const char *pipe) {
         if (msg.operacion == 'Q') {
             strcpy(msg.nombreLibro, "Salir");
             msg.isbn = 0;
+            strcpy(msg.pipeRespuesta, pipeRespuesta);
             write(fd, &msg, sizeof(Mensaje));
-            printf("Comando de salida enviado.\n");
+            printf("Comando de salida enviado. Esperando confirmación...\n");
+
+            int fdResp = open(pipeRespuesta, O_RDONLY);
+            if (fdResp != -1) {
+                char buffer[256];
+                int n = read(fdResp, buffer, sizeof(buffer));
+                buffer[n > 0 ? n : 0] = '\0';
+                close(fdResp);
+                printf("Respuesta del RP: %s\n", buffer);
+            } else {
+                perror("No se pudo leer respuesta del RP");
+            }
+
             break;
         }
 
         printf("Nombre del libro: ");
-        scanf(" %[^\n]", msg.nombreLibro);  // Lee hasta salto de línea
+        scanf(" %[^\n]", msg.nombreLibro);
 
         printf("ISBN: ");
         scanf("%d", &msg.isbn);
 
+        strcpy(msg.pipeRespuesta, pipeRespuesta);
         write(fd, &msg, sizeof(Mensaje));
         printf("Enviado: %c, %s, %d\n", msg.operacion, msg.nombreLibro, msg.isbn);
+
+        printf("Esperando respuesta del RP...\n");
+        int fdResp = open(pipeRespuesta, O_RDONLY);
+        if (fdResp != -1) {
+            char buffer[256];
+            int n = read(fdResp, buffer, sizeof(buffer));
+            buffer[n > 0 ? n : 0] = '\0';
+            close(fdResp);
+            printf("Respuesta del RP: %s\n", buffer);
+        } else {
+            perror("No se pudo leer respuesta del RP");
+        }
     }
 
     close(fd);
 }
 
 // Función principal
-
 int main(int argc, char *argv[]) {
     char archivoEntrada[100] = "";
     char rutaPipe[100] = "";
@@ -105,11 +148,20 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    char pipeRespuesta[MAX_PIPE];
+    snprintf(pipeRespuesta, MAX_PIPE, "pipeRespuesta_%d", getpid());
+
+    if (mkfifo(pipeRespuesta, 0666) == -1 && errno != EEXIST) {
+        perror("Error creando pipe de respuesta");
+        return 1;
+    }
+
     if (usarArchivo) {
-        leerDesdeArchivo(archivoEntrada, rutaPipe);
+        leerDesdeArchivo(archivoEntrada, rutaPipe, pipeRespuesta);
     } else {
-        leerDesdeMenu(rutaPipe);
+        leerDesdeMenu(rutaPipe, pipeRespuesta);
     }
 
     return 0;
 }
+
