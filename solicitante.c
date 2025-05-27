@@ -36,6 +36,18 @@ void leerDesdeArchivo(const char *archivo, const char *pipe, const char *pipeRes
 
     while (fgets(linea, sizeof(linea), f)) {
         if (sscanf(linea, " %c, %99[^,], %d", &msg.operacion, msg.nombreLibro, &msg.isbn) == 3) {
+
+            // VALIDACIONES NUEVAS
+            if (msg.operacion != 'D' && msg.operacion != 'R' && msg.operacion != 'P' && msg.operacion != 'Q') {
+                printf("Operación inválida en línea: %s", linea);
+                continue;
+            }
+
+            if (msg.isbn <= 0) {
+                printf("ISBN inválido (debe ser positivo): %s", linea);
+                continue;
+            }
+
             strcpy(msg.pipeRespuesta, pipeRespuesta);
             write(fd, &msg, sizeof(Mensaje));
             printf("Enviado: %c, %s, %d\n", msg.operacion, msg.nombreLibro, msg.isbn);
@@ -76,6 +88,12 @@ void leerDesdeMenu(const char *pipe, const char *pipeRespuesta) {
         printf("\nIngrese operación (D: Devolver, R: Renovar, P: Prestar, Q: Salir): ");
         scanf(" %c", &msg.operacion);
 
+        // VALIDACIÓN OPERACIÓN
+        if (msg.operacion != 'D' && msg.operacion != 'R' && msg.operacion != 'P' && msg.operacion != 'Q') {
+            printf("Operación inválida. Intente de nuevo.\n");
+            continue;
+        }
+
         if (msg.operacion == 'Q') {
             strcpy(msg.nombreLibro, "Salir");
             msg.isbn = 0;
@@ -102,6 +120,12 @@ void leerDesdeMenu(const char *pipe, const char *pipeRespuesta) {
 
         printf("ISBN: ");
         scanf("%d", &msg.isbn);
+
+        // VALIDACIÓN ISBN
+        if (msg.isbn <= 0) {
+            printf("ISBN inválido. Debe ser un número positivo.\n");
+            continue;
+        }
 
         strcpy(msg.pipeRespuesta, pipeRespuesta);
         write(fd, &msg, sizeof(Mensaje));
@@ -150,7 +174,6 @@ int main(int argc, char *argv[]) {
 
     char pipeRespuesta[MAX_PIPE];
     snprintf(pipeRespuesta, MAX_PIPE, "pipeRespuesta_%d", getpid());
-
     if (mkfifo(pipeRespuesta, 0666) == -1 && errno != EEXIST) {
         perror("Error creando pipe de respuesta");
         return 1;
@@ -164,4 +187,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-
