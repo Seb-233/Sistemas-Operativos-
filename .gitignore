@@ -1,0 +1,4 @@
+# Ignorar ejecutables y pipes
+solicitante
+pipeRespuesta_*
+entrada_mala.txt
