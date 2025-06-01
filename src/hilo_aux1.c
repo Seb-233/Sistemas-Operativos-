@@ -1,142 +1,97 @@
-#include "buffer.h"
-#include <unistd.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
+#include <unistd.h>
 #include <fcntl.h>
-#include <time.h>
+#include "hilo_aux1.h"
+#include "buffer.h"
 
-#define MAX_EJEMPLARES 100
-#define MAX_LIBROS 100
-
-typedef struct {
-    int numero;
-    char estado;
-    char fecha[11]; // dd-mm-aaaa
-} Ejemplar;
-
-typedef struct {
-    char nombre[MAX_LIBRO];
-    int isbn;
-    int cantidad;
-    Ejemplar ejemplares[MAX_EJEMPLARES];
-} Libro;
-
-Libro libros[MAX_LIBROS];
-int totalLibros = 0;
-
-void cargarBaseDatos(const char *archivo) {
-    FILE *f = fopen(archivo, "r");
-    if (!f) {
-        perror("[Hilo1] Error al abrir base_datos.txt");
-        return;
-    }
-
-    totalLibros = 0;
-    while (!feof(f)) {
-        Libro l;
-        char linea[256];
-
-        if (!fgets(linea, sizeof(linea), f)) break;
-        if (sscanf(linea, "%[^,], %d, %d", l.nombre, &l.isbn, &l.cantidad) != 3) continue;
-
-        for (int i = 0; i < l.cantidad; i++) {
-            if (!fgets(linea, sizeof(linea), f)) break;
-            sscanf(linea, "%d, %c, %10s", &l.ejemplares[i].numero,
-                                          &l.ejemplares[i].estado,
-                                          l.ejemplares[i].fecha);
-        }
-
-        libros[totalLibros++] = l;
-    }
-
-    fclose(f);
-}
-
-void guardarBaseDatos(const char *archivo) {
-    FILE *f = fopen(archivo, "w");
-    if (!f) {
-        perror("[Hilo1] Error al escribir base_datos.txt");
-        return;
-    }
-
-    for (int i = 0; i < totalLibros; i++) {
-        fprintf(f, "%s, %d, %d\n", libros[i].nombre, libros[i].isbn, libros[i].cantidad);
-        for (int j = 0; j < libros[i].cantidad; j++) {
-            fprintf(f, "%d, %c, %s\n", libros[i].ejemplares[j].numero,
-                                       libros[i].ejemplares[j].estado,
-                                       libros[i].ejemplares[j].fecha);
-        }
-    }
-
-    fclose(f);
-}
-
-void obtenerFechaActual(char *dest) {
-    time_t t = time(NULL);
-    struct tm tm = *localtime(&t);
-    sprintf(dest, "%02d-%02d-%04d", tm.tm_mday, tm.tm_mon + 1, tm.tm_year + 1900);
-}
+extern void cargarBaseDatos(const char *archivo);
+extern void guardarBaseDatos(const char *archivo);
+extern BufferCircular bufferGlobal;
+extern char archivoSalida[];
+extern int verboseFlag;
 
 void procesarSolicitud(Mensaje m) {
-    char fechaHoy[11];
-    obtenerFechaActual(fechaHoy);
+    FILE *f = fopen("base_datos.txt", "r");
+    if (!f) {
+        perror("[Hilo1] No se pudo abrir base_datos.txt");
+        return;
+    }
 
-    int encontrado = 0;
-    for (int i = 0; i < totalLibros; i++) {
-        if (strcmp(libros[i].nombre, m.nombreLibro) == 0 || libros[i].isbn == m.isbn) {
-            encontrado = 1;
+    char linea[256];
+    char lineas[100][256];
+    int total = 0;
 
-            if (m.operacion == 'D') {
-                for (int j = 0; j < libros[i].cantidad; j++) {
-                    if (libros[i].ejemplares[j].estado == 'P') {
-                        libros[i].ejemplares[j].estado = 'D';
-                        strcpy(libros[i].ejemplares[j].fecha, fechaHoy);
-                        printf("[Hilo1] Libro '%s': ejemplar %d marcado como disponible\n",
-                               libros[i].nombre, libros[i].ejemplares[j].numero);
-                        break;
-                    }
-                }
-            } else if (m.operacion == 'R') {
-                for (int j = 0; j < libros[i].cantidad; j++) {
-                    if (libros[i].ejemplares[j].estado == 'P') {
-                        strcpy(libros[i].ejemplares[j].fecha, fechaHoy);
-                        printf("[Hilo1] Libro '%s': ejemplar %d renovado\n",
-                               libros[i].nombre, libros[i].ejemplares[j].numero);
-                        break;
-                    }
-                }
+    // Leer todas las líneas
+    while (fgets(linea, sizeof(linea), f)) {
+        strcpy(lineas[total++], linea);
+    }
+    fclose(f);
+
+    int modificado = 0;
+
+    // Buscar ejemplar disponible (estado D) y modificar según operación
+    for (int i = 1; i < total; i++) {  // empieza en 1 para saltar encabezado
+        int ejemplar;
+        char estado, fecha[20];
+
+        if (sscanf(lineas[i], "%d, %c, %s", &ejemplar, &estado, fecha) == 3) {
+            if (estado == 'D' && m.operacion == 'P') {
+                snprintf(lineas[i], sizeof(lineas[i]), "%d, P, 01-06-2024\n", ejemplar);
+                modificado = 1;
+                break;
+            } else if (estado == 'P' && m.operacion == 'R') {
+                snprintf(lineas[i], sizeof(lineas[i]), "%d, R, 02-06-2024\n", ejemplar);
+                modificado = 1;
+                break;
+            } else if ((estado == 'P' || estado == 'R') && m.operacion == 'D') {
+                snprintf(lineas[i], sizeof(lineas[i]), "%d, D, 03-06-2024\n", ejemplar);
+                modificado = 1;
+                break;
             }
-
-            break;
         }
     }
 
-    if (!encontrado) {
-        printf("[Hilo1] Libro '%s' no encontrado para ISBN %d\n", m.nombreLibro, m.isbn);
+    // Guardar archivo
+    f = fopen("base_datos.txt", "w");
+    for (int i = 0; i < total; i++) {
+        fputs(lineas[i], f);
+    }
+    fclose(f);
+
+    if (modificado) {
+        printf("[Hilo1] Solicitud %c procesada para '%s'.\n", m.operacion, m.nombreLibro);
+        if (verboseFlag) {
+            printf("[Verbose] Estado de base_datos.txt actualizado tras operación %c.\n", m.operacion);
+        }
+    } else {
+        printf("[Hilo1] No se encontró ejemplar válido para %c en '%s'.\n", m.operacion, m.nombreLibro);
     }
 }
 
 void *hiloAuxiliar1(void *arg) {
     BufferCircular *buffer = (BufferCircular *)arg;
-
     while (1) {
         Mensaje m = sacarBuffer(buffer);
-        printf("[Hilo1] Procesando solicitud %c para libro '%s' (ISBN %d)\n",
-               m.operacion, m.nombreLibro, m.isbn);
+        printf("[Hilo1] Procesando solicitud %c para libro '%s' (ISBN %d)\n", m.operacion, m.nombreLibro, m.isbn);
 
-        cargarBaseDatos("base_datos.txt");
+        if (verboseFlag) {
+            printf("[Verbose] Extrayendo solicitud del buffer para operación %c.\n", m.operacion);
+        }
+
         procesarSolicitud(m);
-        guardarBaseDatos("base_datos.txt");
 
         int fd = open(m.pipeRespuesta, O_WRONLY);
         if (fd != -1) {
             char respuesta[150];
-            snprintf(respuesta, sizeof(respuesta),
-                     "Solicitud %c procesada para el libro '%s'.\n",
-                     m.operacion, m.nombreLibro);
+            snprintf(respuesta, sizeof(respuesta), "Solicitud %c procesada para el libro '%s'.\n", m.operacion, m.nombreLibro);
             write(fd, respuesta, strlen(respuesta));
             close(fd);
+
+            if (verboseFlag) {
+                printf("[Verbose] Respuesta enviada a %s\n", m.pipeRespuesta);
+            }
         } else {
             perror("[Hilo1] No se pudo abrir pipeRespuesta");
         }
@@ -144,4 +99,3 @@ void *hiloAuxiliar1(void *arg) {
 
     return NULL;
 }
-

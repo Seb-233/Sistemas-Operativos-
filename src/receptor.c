@@ -8,14 +8,39 @@
 #include <pthread.h>
 #include "buffer.h"
 #include "hilo_aux2.h"
-#include "hilo_aux1.h"
 
 #define MAX_LIBRO 100
 #define MAX_PIPE 100
 
 pthread_t hilo1, hilo2;
 BufferCircular bufferGlobal;
-int sistemaActivo = 1;  // bandera global para controlar salida
+int sistemaActivo = 1;
+char archivoSalida[100] = "";
+int verboseFlag = 0;
+
+void *hiloAuxiliar1(void *arg);
+void procesarSolicitud(Mensaje m);
+
+void guardarEstadoFinal(const char *archivoSalida) {
+    if (archivoSalida[0] == '\0') return;
+
+    FILE *origen = fopen("base_datos.txt", "r");
+    FILE *destino = fopen(archivoSalida, "w");
+
+    if (!origen || !destino) {
+        perror("[RP] No se pudo guardar el estado final");
+        return;
+    }
+
+    char linea[256];
+    while (fgets(linea, sizeof(linea), origen)) {
+        fputs(linea, destino);
+    }
+
+    fclose(origen);
+    fclose(destino);
+    printf("[RP] Estado final guardado en: %s\n", archivoSalida);
+}
 
 void enviarRespuesta(const char *pipeRespuesta, const char *mensaje) {
     int fdResp = open(pipeRespuesta, O_WRONLY);
@@ -29,15 +54,24 @@ void enviarRespuesta(const char *pipeRespuesta, const char *mensaje) {
 
 int main(int argc, char *argv[]) {
     char rutaPipe[100] = "";
-pthread_create(&hilo1, NULL, hiloAuxiliar1, (void *)&bufferGlobal);
-pthread_create(&hilo2, NULL, hiloAuxiliar2, NULL);
+    char nombreArchivoDatos[100] = "base_datos.txt";
 
-    if (argc < 3 || strcmp(argv[1], "-p") != 0) {
-        fprintf(stderr, "Uso: %s -p pipeReceptor\n", argv[0]);
-        return 1;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
+            strcpy(rutaPipe, argv[++i]);
+        } else if (strcmp(argv[i], "-f") == 0 && i + 1 < argc) {
+            strcpy(nombreArchivoDatos, argv[++i]);
+        } else if (strcmp(argv[i], "-s") == 0 && i + 1 < argc) {
+            strcpy(archivoSalida, argv[++i]);
+        } else if (strcmp(argv[i], "-v") == 0) {
+            verboseFlag = 1;
+        }
     }
 
-    strcpy(rutaPipe, argv[2]);
+    if (rutaPipe[0] == '\0') {
+        fprintf(stderr, "Uso: %s -p pipeReceptor [-f archivo] [-s salida] [-v]\n", argv[0]);
+        return 1;
+    }
 
     if (mkfifo(rutaPipe, 0666) == -1 && errno != EEXIST) {
         perror("Error al crear el pipe receptor");
@@ -74,13 +108,17 @@ pthread_create(&hilo2, NULL, hiloAuxiliar2, NULL);
             printf("ISBN: %d\n", msg.isbn);
             printf("Responder a: %s\n", msg.pipeRespuesta);
 
+            if (verboseFlag) {
+                printf("[Verbose] Solicitud %c recibida para '%s' (ISBN %d)\n", msg.operacion, msg.nombreLibro, msg.isbn);
+            }
+
             switch (msg.operacion) {
                 case 'P':
-                    enviarRespuesta(msg.pipeRespuesta, "Prestamo procesado (simulado).\n");
-                    break;
                 case 'D':
                 case 'R':
+                    if (verboseFlag) printf("[Verbose] Insertando en buffer...\n");
                     insertarBuffer(&bufferGlobal, msg);
+                    if (verboseFlag) printf("[Verbose] Mensaje insertado correctamente.\n");
                     break;
                 case 'Q':
                     enviarRespuesta(msg.pipeRespuesta, "Finalizando sesión del solicitante.\n");

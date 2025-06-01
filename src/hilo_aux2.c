@@ -5,6 +5,8 @@
 #include "hilo_aux2.h"
 
 extern int sistemaActivo;
+extern char archivoSalida[];
+void guardarEstadoFinal(const char *archivoSalida);
 
 void generarReporte() {
     FILE *f = fopen("base_datos.txt", "r");
@@ -14,10 +16,26 @@ void generarReporte() {
     }
 
     char linea[256];
+    char nombreLibro[50];
+    int isbn, total = 0;
+
     printf("\n📋 REPORTE DEL SISTEMA:\n----------------------------\n");
-    while (fgets(linea, sizeof(linea), f)) {
-        printf("%s", linea);
+
+    // Primera línea: nombre, isbn, total
+    if (fgets(linea, sizeof(linea), f)) {
+        sscanf(linea, "%[^,], %d, %d", nombreLibro, &isbn, &total);
+        printf("Libro: %s\nISBN: %d\nTotal ejemplares: %d\n", nombreLibro, isbn, total);
     }
+
+    // Resto: ejemplares
+    int ejemplar;
+    char estado, fecha[20];
+    while (fgets(linea, sizeof(linea), f)) {
+        if (sscanf(linea, "%d, %c, %s", &ejemplar, &estado, fecha) == 3) {
+            printf("Ejemplar %d → Estado: %c → Fecha: %s\n", ejemplar, estado, fecha);
+        }
+    }
+
     printf("----------------------------\n");
     fclose(f);
 }
@@ -34,6 +52,7 @@ void *hiloAuxiliar2(void *arg) {
                 generarReporte();
             } else if (comando[0] == 's') {
                 printf("[Hilo2] Cerrando el sistema...\n");
+                guardarEstadoFinal(archivoSalida);
                 sistemaActivo = 0;
                 exit(0);
             } else {
