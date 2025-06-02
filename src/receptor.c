@@ -102,12 +102,6 @@ int main(int argc, char *argv[]) {
     while (1) {
         ssize_t n = read(fd, &msg, sizeof(Mensaje));
         if (n == sizeof(Mensaje)) {
-            printf("\nSolicitud recibida:\n");
-            printf("Operación: %c\n", msg.operacion);
-            printf("Libro: %s\n", msg.nombreLibro);
-            printf("ISBN: %d\n", msg.isbn);
-            printf("Responder a: %s\n", msg.pipeRespuesta);
-
             if (verboseFlag) {
                 printf("[Verbose] Solicitud %c recibida para '%s' (ISBN %d)\n", msg.operacion, msg.nombreLibro, msg.isbn);
             }
