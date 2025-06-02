@@ -36,21 +36,24 @@ void procesarSolicitud(Mensaje m) {
         int ejemplar;
         char estado, fecha[20];
 
-        if (sscanf(lineas[i], "%d, %c, %s", &ejemplar, &estado, fecha) == 3) {
-            if (estado == 'D' && m.operacion == 'P') {
-                snprintf(lineas[i], sizeof(lineas[i]), "%d, P, 01-06-2024\n", ejemplar);
-                modificado = 1;
-                break;
-            } else if (estado == 'P' && m.operacion == 'R') {
-                snprintf(lineas[i], sizeof(lineas[i]), "%d, R, 02-06-2024\n", ejemplar);
-                modificado = 1;
-                break;
-            } else if ((estado == 'P' || estado == 'R') && m.operacion == 'D') {
-                snprintf(lineas[i], sizeof(lineas[i]), "%d, D, 03-06-2024\n", ejemplar);
-                modificado = 1;
-                break;
-            }
+       if (sscanf(lineas[i], "%d, %c, %s", &ejemplar, &estado, fecha) == 3) {
+            if (ejemplar == m.ejemplar) {
+        if (estado == 'D' && m.operacion == 'P') {
+            snprintf(lineas[i], sizeof(lineas[i]), "%d, P, 01-06-2024\n", ejemplar);
+            modificado = 1;
+            break;
+        } else if (estado == 'P' && m.operacion == 'R') {
+            snprintf(lineas[i], sizeof(lineas[i]), "%d, R, 02-06-2024\n", ejemplar);
+            modificado = 1;
+            break;
+        } else if ((estado == 'P' || estado == 'R') && m.operacion == 'D') {
+            snprintf(lineas[i], sizeof(lineas[i]), "%d, D, 03-06-2024\n", ejemplar);
+            modificado = 1;
+            break;
         }
+    }
+}
+
     }
 
     // Guardar archivo
