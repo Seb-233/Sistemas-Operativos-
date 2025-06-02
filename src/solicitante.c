@@ -127,6 +127,10 @@ void leerDesdeMenu(const char *pipe, const char *pipeRespuesta) {
             continue;
         }
 
+        printf("Ejemplar: ");
+        scanf("%d", &msg.ejemplar);
+
+
         strcpy(msg.pipeRespuesta, pipeRespuesta);
         write(fd, &msg, sizeof(Mensaje));
         printf("Enviado: %c, %s, %d\n", msg.operacion, msg.nombreLibro, msg.isbn);
