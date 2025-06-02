@@ -78,13 +78,12 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    printf("Receptor escuchando en pipe: %s\n", rutaPipe);
+    if (verboseFlag)
+        printf("Receptor escuchando en pipe: %s\n", rutaPipe);
 
+    // ⬇ ABRIR PIPE EN LECTURA Y EN ESCRITURA PARA EVITAR BLOQUEO
     int fd = open(rutaPipe, O_RDONLY);
-    if (fd == -1) {
-        perror("No se pudo abrir el pipe receptor");
-        return 1;
-    }
+    int dummy = open(rutaPipe, O_WRONLY); // mantiene el otro extremo abierto
 
     inicializarBuffer(&bufferGlobal);
 
@@ -103,7 +102,12 @@ int main(int argc, char *argv[]) {
         ssize_t n = read(fd, &msg, sizeof(Mensaje));
         if (n == sizeof(Mensaje)) {
             if (verboseFlag) {
-                printf("[Verbose] Solicitud %c recibida para '%s' (ISBN %d)\n", msg.operacion, msg.nombreLibro, msg.isbn);
+                printf("\nSolicitud recibida:\n");
+                printf("Operación: %c\n", msg.operacion);
+                printf("Libro: %s\n", msg.nombreLibro);
+                printf("ISBN: %d\n", msg.isbn);
+                printf("Ejemplar: %d\n", msg.ejemplar);
+                printf("Responder a: %s\n", msg.pipeRespuesta);
             }
 
             switch (msg.operacion) {
@@ -122,14 +126,23 @@ int main(int argc, char *argv[]) {
                     break;
             }
         } else if (n == 0) {
-            printf("Pipe cerrado por el otro extremo. Esperando nuevos solicitantes...\n");
+            // 🔁 PIPE CERRADO: REABRIR AMBOS EXTREMOS
+            if (verboseFlag)
+                printf("Pipe cerrado por el otro extremo. Esperando nuevos solicitantes...\n");
+
             close(fd);
+            close(dummy);
+
             fd = open(rutaPipe, O_RDONLY);
+            dummy = open(rutaPipe, O_WRONLY);
         } else {
             perror("Error al leer del pipe");
         }
     }
 
     close(fd);
+    close(dummy);
     return 0;
+}
+
 }
