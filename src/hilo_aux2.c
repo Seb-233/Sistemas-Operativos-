@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <hilo_aux2.h>
+#include "hilo_aux2.h"
 
 // Declaraciones externas (la estructura y las variables están en receptor.c)
 extern int verboseFlag;
