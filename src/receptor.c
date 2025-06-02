@@ -143,6 +143,5 @@ int main(int argc, char *argv[]) {
     close(fd);
     close(dummy);
     return 0;
-}
 
 }
