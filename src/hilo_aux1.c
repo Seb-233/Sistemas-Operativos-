@@ -3,12 +3,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <ctype.h>
+#include <strings.h>
 #include "hilo_aux1.h"
 #include "buffer.h"
-#include <ctype.h>
-#include <strings.h>  // para strcasecmp()
 
-extern void cargarBaseDatos(const char *archivo);
 extern void guardarBaseDatos(const char *archivo);
 extern BufferCircular bufferGlobal;
 extern char archivoSalida[];
@@ -54,18 +53,18 @@ void procesarSolicitud(Mensaje m) {
 
                                 if (estado == 'D' && m.operacion == 'P') {
                                     snprintf(lineas[i + j], sizeof(lineas[i + j]), "%d, P, 01-06-2025\n", ejemplar);
-                                    snprintf(respuesta, sizeof(respuesta), "✅ Préstamo registrado para '%s', ejemplar %d.", m.nombreLibro, ejemplar);
+                                    snprintf(respuesta, sizeof(respuesta), "Prestamo registrado para el libro '%s', ejemplar %d.", m.nombreLibro, ejemplar);
                                     modificado = 1;
                                 } else if (estado == 'P' && m.operacion == 'R') {
                                     snprintf(lineas[i + j], sizeof(lineas[i + j]), "%d, R, 01-06-2025\n", ejemplar);
-                                    snprintf(respuesta, sizeof(respuesta), "✅ Renovación registrada para '%s', ejemplar %d.", m.nombreLibro, ejemplar);
+                                    snprintf(respuesta, sizeof(respuesta), "Renovacion registrada para el libro '%s', ejemplar %d.", m.nombreLibro, ejemplar);
                                     modificado = 1;
                                 } else if ((estado == 'P' || estado == 'R') && m.operacion == 'D') {
                                     snprintf(lineas[i + j], sizeof(lineas[i + j]), "%d, D, 01-06-2025\n", ejemplar);
-                                    snprintf(respuesta, sizeof(respuesta), "✅ Devolución registrada para '%s', ejemplar %d.", m.nombreLibro, ejemplar);
+                                    snprintf(respuesta, sizeof(respuesta), "Devolucion registrada para el libro '%s', ejemplar %d.", m.nombreLibro, ejemplar);
                                     modificado = 1;
                                 } else {
-                                    snprintf(respuesta, sizeof(respuesta), "⚠️ El ejemplar %d no permite la operación '%c'.", ejemplar, m.operacion);
+                                    snprintf(respuesta, sizeof(respuesta), "El ejemplar %d no permite la operacion '%c'.", ejemplar, m.operacion);
                                 }
                                 break;
                             }
@@ -79,11 +78,11 @@ void procesarSolicitud(Mensaje m) {
     }
 
     if (!encontradoLibro) {
-        snprintf(respuesta, sizeof(respuesta), "❌ El libro '%s' no existe en la base de datos.", m.nombreLibro);
+        snprintf(respuesta, sizeof(respuesta), "Libro '%s' no encontrado en la base de datos.", m.nombreLibro);
     } else if (!isbnCorrecto) {
-        snprintf(respuesta, sizeof(respuesta), "❌ ISBN %d incorrecto para el libro '%s'.", m.isbn, m.nombreLibro);
+        snprintf(respuesta, sizeof(respuesta), "ISBN %d incorrecto para el libro '%s'.", m.isbn, m.nombreLibro);
     } else if (!ejemplarEncontrado) {
-        snprintf(respuesta, sizeof(respuesta), "❌ Ejemplar %d no encontrado en '%s'.", m.ejemplar, m.nombreLibro);
+        snprintf(respuesta, sizeof(respuesta), "Ejemplar %d no encontrado para el libro '%s'.", m.ejemplar, m.nombreLibro);
     }
 
     if (modificado) {
@@ -94,12 +93,10 @@ void procesarSolicitud(Mensaje m) {
         fclose(f);
     }
 
-    // Solo imprimir si verbose está activo
     if (verboseFlag) {
         printf("[Hilo1] Mensaje procesado: %s\n", respuesta);
     }
 
-    // Enviar respuesta por pipe
     int fd = open(m.pipeRespuesta, O_WRONLY);
     if (fd != -1) {
         write(fd, respuesta, strlen(respuesta));
@@ -110,37 +107,4 @@ void procesarSolicitud(Mensaje m) {
     } else if (verboseFlag) {
         perror("[Hilo1] No se pudo abrir pipeRespuesta");
     }
-}
-
-
-void *hiloAuxiliar1(void *arg) {
-    BufferCircular *buffer = (BufferCircular *)arg;
-    while (1) {
-        Mensaje m = sacarBuffer(buffer);
-        if (verboseFlag) {
-    printf("[Hilo1] Procesando solicitud %c para libro '%s' (ISBN %d) ejemplar %d\n", m.operacion, m.nombreLibro, m.isbn, m.ejemplar);
-        }
-
-        if (verboseFlag) {
-            printf("[Verbose] Extrayendo solicitud del buffer para operación %c.\n", m.operacion);
-        }
-
-        procesarSolicitud(m);
-
-        int fd = open(m.pipeRespuesta, O_WRONLY);
-        if (fd != -1) {
-            char respuesta[150];
-            snprintf(respuesta, sizeof(respuesta), "Solicitud %c procesada para el libro '%s'.\n", m.operacion, m.nombreLibro);
-            write(fd, respuesta, strlen(respuesta));
-            close(fd);
-
-            if (verboseFlag) {
-                printf("[Verbose] Respuesta enviada a %s\n", m.pipeRespuesta);
-            }
-        } else {
-            perror("[Hilo1] No se pudo abrir pipeRespuesta");
-        }
-    }
-
-    return NULL;
 }
