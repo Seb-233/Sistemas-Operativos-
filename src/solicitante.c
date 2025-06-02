@@ -35,7 +35,7 @@ void leerDesdeArchivo(const char *archivo, const char *pipe, const char *pipeRes
     Mensaje msg;
 
     while (fgets(linea, sizeof(linea), f)) {
-        if (sscanf(linea, " %c, %99[^,], %d", &msg.operacion, msg.nombreLibro, &msg.isbn) == 3) {
+        if (sscanf(linea, " %c, %99[^,], %d, %d", &msg.operacion, msg.nombreLibro, &msg.isbn, &msg.ejemplar) == 4){
 
             // VALIDACIONES NUEVAS
             if (msg.operacion != 'D' && msg.operacion != 'R' && msg.operacion != 'P' && msg.operacion != 'Q') {
