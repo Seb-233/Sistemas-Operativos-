@@ -28,22 +28,20 @@ extern int total_registros;
 void guardarEstadoFinal(const char *archivo);
 
 void generarReporte() {
-    printf("\n--- Reporte de operaciones realizadas ---\n");
-    printf("Tipo | Libro | ISBN | Ejemplar | Fecha\n");
-    printf("----------------------------------------\n");
+    if (verboseFlag)
+        printf("[Hilo2] Generando reporte de operaciones realizadas\n");
 
     for (int i = 0; i < total_registros; i++) {
         RegistroOperacion r = historial[i];
-        printf("  %c  | %s | %s | %d | %s\n",
+        printf("%c, %s, %s, %d, %s\n",
                r.tipo, r.nombreLibro, r.isbn, r.ejemplar, r.fecha);
     }
 
     if (total_registros == 0) {
         printf("(No se han registrado operaciones)\n");
     }
-
-    printf("----------------------------------------\n\n");
 }
+
 
 void *hiloAuxiliar2(void *arg) {
     char comando[10];
