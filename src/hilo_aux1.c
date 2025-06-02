@@ -31,29 +31,28 @@ void procesarSolicitud(Mensaje m) {
 
     int modificado = 0;
 
-    // Buscar ejemplar disponible (estado D) y modificar según operación
-    for (int i = 1; i < total; i++) {  // empieza en 1 para saltar encabezado
+    // Buscar ejemplar exacto y modificar según operación
+    for (int i = 1; i < total; i++) {
         int ejemplar;
         char estado, fecha[20];
 
-       if (sscanf(lineas[i], "%d, %c, %s", &ejemplar, &estado, fecha) == 3) {
+        if (sscanf(lineas[i], "%d, %c, %s", &ejemplar, &estado, fecha) == 3) {
             if (ejemplar == m.ejemplar) {
-        if (estado == 'D' && m.operacion == 'P') {
-            snprintf(lineas[i], sizeof(lineas[i]), "%d, P, 01-06-2024\n", ejemplar);
-            modificado = 1;
-            break;
-        } else if (estado == 'P' && m.operacion == 'R') {
-            snprintf(lineas[i], sizeof(lineas[i]), "%d, R, 02-06-2024\n", ejemplar);
-            modificado = 1;
-            break;
-        } else if ((estado == 'P' || estado == 'R') && m.operacion == 'D') {
-            snprintf(lineas[i], sizeof(lineas[i]), "%d, D, 03-06-2024\n", ejemplar);
-            modificado = 1;
-            break;
+                if (estado == 'D' && m.operacion == 'P') {
+                    snprintf(lineas[i], sizeof(lineas[i]), "%d, P, 01-06-2024\n", ejemplar);
+                    modificado = 1;
+                    break;
+                } else if (estado == 'P' && m.operacion == 'R') {
+                    snprintf(lineas[i], sizeof(lineas[i]), "%d, R, 02-06-2024\n", ejemplar);
+                    modificado = 1;
+                    break;
+                } else if ((estado == 'P' || estado == 'R') && m.operacion == 'D') {
+                    snprintf(lineas[i], sizeof(lineas[i]), "%d, D, 03-06-2024\n", ejemplar);
+                    modificado = 1;
+                    break;
+                }
+            }
         }
-    }
-}
-
     }
 
     // Guardar archivo
@@ -64,12 +63,12 @@ void procesarSolicitud(Mensaje m) {
     fclose(f);
 
     if (modificado) {
-        printf("[Hilo1] Solicitud %c procesada para '%s'.\n", m.operacion, m.nombreLibro);
+        printf("[Hilo1] Solicitud %c procesada para '%s' (ejemplar %d).\n", m.operacion, m.nombreLibro, m.ejemplar);
         if (verboseFlag) {
             printf("[Verbose] Estado de base_datos.txt actualizado tras operación %c.\n", m.operacion);
         }
     } else {
-        printf("[Hilo1] No se encontró ejemplar válido para %c en '%s'.\n", m.operacion, m.nombreLibro);
+        printf("[Hilo1] El ejemplar %d no se encontró o no está disponible para la operación '%c'.\n", m.ejemplar, m.operacion);
     }
 }
 
@@ -77,7 +76,7 @@ void *hiloAuxiliar1(void *arg) {
     BufferCircular *buffer = (BufferCircular *)arg;
     while (1) {
         Mensaje m = sacarBuffer(buffer);
-        printf("[Hilo1] Procesando solicitud %c para libro '%s' (ISBN %d)\n", m.operacion, m.nombreLibro, m.isbn);
+        printf("[Hilo1] Procesando solicitud %c para libro '%s' (ISBN %d) ejemplar %d\n", m.operacion, m.nombreLibro, m.isbn, m.ejemplar);
 
         if (verboseFlag) {
             printf("[Verbose] Extrayendo solicitud del buffer para operación %c.\n", m.operacion);
