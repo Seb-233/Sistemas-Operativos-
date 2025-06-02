@@ -8,7 +8,6 @@
 #include "hilo_aux1.h"
 #include "buffer.h"
 
-extern void guardarBaseDatos(const char *archivo);
 extern BufferCircular bufferGlobal;
 extern char archivoSalida[];
 extern int verboseFlag;
@@ -107,4 +106,21 @@ void procesarSolicitud(Mensaje m) {
     } else if (verboseFlag) {
         perror("[Hilo1] No se pudo abrir pipeRespuesta");
     }
+}
+
+void *hiloAuxiliar1(void *arg) {
+    BufferCircular *buffer = (BufferCircular *)arg;
+
+    while (1) {
+        Mensaje m = sacarBuffer(buffer);
+
+        if (verboseFlag) {
+            printf("[Hilo1] Procesando solicitud %c para libro '%s' (ISBN %d) ejemplar %d\n",
+                   m.operacion, m.nombreLibro, m.isbn, m.ejemplar);
+        }
+
+        procesarSolicitud(m);
+    }
+
+    return NULL;
 }
