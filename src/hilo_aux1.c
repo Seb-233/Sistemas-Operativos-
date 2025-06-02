@@ -5,8 +5,10 @@
 #include <fcntl.h>
 #include <ctype.h>
 #include <strings.h>
+#include <time.h>  // ya que trabajamos con fechas
 #include "hilo_aux1.h"
 #include "buffer.h"
+
 
 // Constantes de tamaño
 #define MAX_LIBRO 100
@@ -40,6 +42,14 @@ void registrarEnHistorial(char tipo, const char *nombre, int isbn, int ejemplar,
     strncpy(r->fecha, fecha, MAX_FECHA);
 }
 
+char *obtenerFechaActual() {
+    static char fecha[20];
+    time_t t = time(NULL);
+    struct tm *tm_info = localtime(&t);
+    strftime(fecha, sizeof(fecha), "%d-%m-%Y", tm_info);
+    return fecha;
+}
+
 void procesarSolicitud(Mensaje m) {
     FILE *f = fopen("base_datos.txt", "r");
     if (!f) {
@@ -59,7 +69,7 @@ void procesarSolicitud(Mensaje m) {
     int i = 0;
     int encontradoLibro = 0, isbnCorrecto = 0, ejemplarEncontrado = 0, modificado = 0;
     char respuesta[256] = "";
-    const char *fecha = "01-06-2025";  // puedes actualizarlo con time.h más adelante
+    char *fecha = obtenerFechaActual();
 
     while (i < total) {
         char nombreLibro[MAX_LIBRO];
