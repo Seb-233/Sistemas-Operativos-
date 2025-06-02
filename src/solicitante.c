@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 #define MAX_LIBRO 100
 #define MAX_PIPE 100
@@ -30,7 +31,7 @@ int leerDesdeArchivo(const char *nombreArchivo, Mensaje *mensajes, int *cantidad
         if (sscanf(linea, " %c, %99[^,], %d, %d", &msg.operacion, msg.nombreLibro, &msg.isbn, &msg.ejemplar) == 4) {
             mensajes[i++] = msg;
         } else if (sscanf(linea, " %c, %99[^,], %d", &msg.operacion, msg.nombreLibro, &msg.isbn) == 3) {
-            msg.ejemplar = 1;  // valor por defecto si no se da el ejemplar
+            msg.ejemplar = 1;
             mensajes[i++] = msg;
         }
     }
@@ -59,7 +60,6 @@ int main(int argc, char *argv[]) {
     char archivoEntrada[100] = "";
     char pipeReceptor[100] = "";
 
-    // Procesar argumentos
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) {
             strcpy(archivoEntrada, argv[++i]);
@@ -86,14 +86,17 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < cantidad; i++) {
             Mensaje msg = mensajes[i];
             snprintf(msg.pipeRespuesta, sizeof(msg.pipeRespuesta), "pipeRespuesta_%d", getpid());
-            unlink(msg.pipeRespuesta); // borrar si ya existe
+            unlink(msg.pipeRespuesta);
             mkfifo(msg.pipeRespuesta, 0666);
 
-            int fd = open(pipeReceptor, O_WRONLY);
-            if (fd != -1) {
-                write(fd, &msg, sizeof(Mensaje));
-                close(fd);
+            int fd = open(pipeReceptor, O_WRONLY | O_NONBLOCK);
+            if (fd == -1) {
+                perror("[PS] No se pudo abrir el pipe receptor. Es posible que el RP haya terminado.");
+                unlink(msg.pipeRespuesta);
+                exit(1);
             }
+            write(fd, &msg, sizeof(Mensaje));
+            close(fd);
 
             fd = open(msg.pipeRespuesta, O_RDONLY);
             if (fd != -1) {
@@ -106,7 +109,7 @@ int main(int argc, char *argv[]) {
                 close(fd);
             }
 
-            unlink(msg.pipeRespuesta); // limpiar pipeRespuesta al final
+            unlink(msg.pipeRespuesta);
         }
     } else {
         printf("[PS] Iniciando menu interactivo...\n");
@@ -117,12 +120,14 @@ int main(int argc, char *argv[]) {
                 unlink(msg.pipeRespuesta);
                 mkfifo(msg.pipeRespuesta, 0666);
 
-                int fd = open(pipeReceptor, O_WRONLY);
-                if (fd != -1) {
-                    write(fd, &msg, sizeof(Mensaje));
-                    close(fd);
+                int fd = open(pipeReceptor, O_WRONLY | O_NONBLOCK);
+                if (fd == -1) {
+                    perror("[PS] No se pudo abrir el pipe receptor. Es posible que el RP haya terminado.");
+                    unlink(msg.pipeRespuesta);
+                    exit(1);
                 }
-                printf("Comando de salida enviado. Esperando confirmacion...\n");
+                write(fd, &msg, sizeof(Mensaje));
+                close(fd);
 
                 fd = open(msg.pipeRespuesta, O_RDONLY);
                 if (fd != -1) {
@@ -143,11 +148,14 @@ int main(int argc, char *argv[]) {
             unlink(msg.pipeRespuesta);
             mkfifo(msg.pipeRespuesta, 0666);
 
-            int fd = open(pipeReceptor, O_WRONLY);
-            if (fd != -1) {
-                write(fd, &msg, sizeof(Mensaje));
-                close(fd);
+            int fd = open(pipeReceptor, O_WRONLY | O_NONBLOCK);
+            if (fd == -1) {
+                perror("[PS] No se pudo abrir el pipe receptor. Es posible que el RP haya terminado.");
+                unlink(msg.pipeRespuesta);
+                exit(1);
             }
+            write(fd, &msg, sizeof(Mensaje));
+            close(fd);
 
             fd = open(msg.pipeRespuesta, O_RDONLY);
             if (fd != -1) {
@@ -160,7 +168,7 @@ int main(int argc, char *argv[]) {
                 close(fd);
             }
 
-            unlink(msg.pipeRespuesta); // borrar después de leer
+            unlink(msg.pipeRespuesta);
         }
     }
 
