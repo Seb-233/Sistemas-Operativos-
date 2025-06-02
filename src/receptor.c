@@ -17,6 +17,9 @@ BufferCircular bufferGlobal;
 int sistemaActivo = 1;
 char archivoSalida[100] = "";
 int verboseFlag = 0;
+RegistroOperacion historial[MAX_REGISTROS];
+int total_registros = 0;
+
 
 void *hiloAuxiliar1(void *arg);
 void procesarSolicitud(Mensaje m);
