@@ -1,188 +1,167 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
 #include <unistd.h>
-#include <errno.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 
 #define MAX_LIBRO 100
 #define MAX_PIPE 100
 
 typedef struct {
-    char operacion;                  // 'D', 'R', 'P', 'Q'
+    char operacion;
     char nombreLibro[MAX_LIBRO];
     int isbn;
-    char pipeRespuesta[MAX_PIPE];   // Pipe para respuesta del RP
+    int ejemplar;
+    char pipeRespuesta[MAX_PIPE];
 } Mensaje;
 
-// Leer desde archivo
-void leerDesdeArchivo(const char *archivo, const char *pipe, const char *pipeRespuesta) {
-    FILE *f = fopen(archivo, "r");
-    if (!f) {
-        perror("No se pudo abrir el archivo de entrada");
-        return;
-    }
-
-    int fd = open(pipe, O_WRONLY);
-    if (fd == -1) {
-        perror("No se pudo abrir el pipe");
-        fclose(f);
-        return;
+int leerDesdeArchivo(const char *nombreArchivo, Mensaje *mensajes, int *cantidad) {
+    FILE *archivo = fopen(nombreArchivo, "r");
+    if (!archivo) {
+        perror("Error al abrir archivo de entrada");
+        return -1;
     }
 
     char linea[256];
-    Mensaje msg;
-
-    while (fgets(linea, sizeof(linea), f)) {
-        if (sscanf(linea, " %c, %99[^,], %d", &msg.operacion, msg.nombreLibro, &msg.isbn) == 3) {
-
-            // VALIDACIONES NUEVAS
-            if (msg.operacion != 'D' && msg.operacion != 'R' && msg.operacion != 'P' && msg.operacion != 'Q') {
-                printf("Operación inválida en línea: %s", linea);
-                continue;
-            }
-
-            if (msg.isbn <= 0) {
-                printf("ISBN inválido (debe ser positivo): %s", linea);
-                continue;
-            }
-
-            strcpy(msg.pipeRespuesta, pipeRespuesta);
-            write(fd, &msg, sizeof(Mensaje));
-            printf("Enviado: %c, %s, %d\n", msg.operacion, msg.nombreLibro, msg.isbn);
-
-            // Esperar y leer respuesta
-            printf("Esperando respuesta del RP...\n");
-            int fdResp = open(pipeRespuesta, O_RDONLY);
-            if (fdResp != -1) {
-                char buffer[256];
-                int n = read(fdResp, buffer, sizeof(buffer));
-                buffer[n > 0 ? n : 0] = '\0';
-                close(fdResp);
-                printf("Respuesta del RP: %s\n", buffer);
-            } else {
-                perror("No se pudo leer respuesta del RP");
-            }
-
-        } else {
-            printf("Línea malformada: %s", linea);
+    int i = 0;
+    while (fgets(linea, sizeof(linea), archivo)) {
+        Mensaje msg;
+        if (sscanf(linea, " %c, %99[^,], %d, %d", &msg.operacion, msg.nombreLibro, &msg.isbn, &msg.ejemplar) == 4) {
+            mensajes[i++] = msg;
+        } else if (sscanf(linea, " %c, %99[^,], %d", &msg.operacion, msg.nombreLibro, &msg.isbn) == 3) {
+            msg.ejemplar = 1;  // valor por defecto si no se da el ejemplar
+            mensajes[i++] = msg;
         }
     }
-
-    close(fd);
-    fclose(f);
+    fclose(archivo);
+    *cantidad = i;
+    return 0;
 }
 
-// Leer desde menú
-void leerDesdeMenu(const char *pipe, const char *pipeRespuesta) {
-    int fd = open(pipe, O_WRONLY);
-    if (fd == -1) {
-        perror("No se pudo abrir el pipe");
-        return;
-    }
+int leerDesdeMenu(Mensaje *msg) {
+    printf("\nIngrese operacion (D: Devolver, R: Renovar, P: Prestar, Q: Salir): ");
+    scanf(" %c", &msg->operacion);
 
-    Mensaje msg;
+    if (msg->operacion == 'Q') return 0;
 
-    while (1) {
-        printf("\nIngrese operación (D: Devolver, R: Renovar, P: Prestar, Q: Salir): ");
-        scanf(" %c", &msg.operacion);
+    printf("Nombre del libro: ");
+    scanf(" %s", msg->nombreLibro);
+    printf("ISBN: ");
+    scanf("%d", &msg->isbn);
+    printf("Ejemplar: ");
+    scanf("%d", &msg->ejemplar);
 
-        // VALIDACIÓN OPERACIÓN
-        if (msg.operacion != 'D' && msg.operacion != 'R' && msg.operacion != 'P' && msg.operacion != 'Q') {
-            printf("Operación inválida. Intente de nuevo.\n");
-            continue;
-        }
-
-        if (msg.operacion == 'Q') {
-            strcpy(msg.nombreLibro, "Salir");
-            msg.isbn = 0;
-            strcpy(msg.pipeRespuesta, pipeRespuesta);
-            write(fd, &msg, sizeof(Mensaje));
-            printf("Comando de salida enviado. Esperando confirmación...\n");
-
-            int fdResp = open(pipeRespuesta, O_RDONLY);
-            if (fdResp != -1) {
-                char buffer[256];
-                int n = read(fdResp, buffer, sizeof(buffer));
-                buffer[n > 0 ? n : 0] = '\0';
-                close(fdResp);
-                printf("Respuesta del RP: %s\n", buffer);
-            } else {
-                perror("No se pudo leer respuesta del RP");
-            }
-
-            break;
-        }
-
-        printf("Nombre del libro: ");
-        scanf(" %[^\n]", msg.nombreLibro);
-
-        printf("ISBN: ");
-        scanf("%d", &msg.isbn);
-
-        // VALIDACIÓN ISBN
-        if (msg.isbn <= 0) {
-            printf("ISBN inválido. Debe ser un número positivo.\n");
-            continue;
-        }
-
-        strcpy(msg.pipeRespuesta, pipeRespuesta);
-        write(fd, &msg, sizeof(Mensaje));
-        printf("Enviado: %c, %s, %d\n", msg.operacion, msg.nombreLibro, msg.isbn);
-
-        printf("Esperando respuesta del RP...\n");
-        int fdResp = open(pipeRespuesta, O_RDONLY);
-        if (fdResp != -1) {
-            char buffer[256];
-            int n = read(fdResp, buffer, sizeof(buffer));
-            buffer[n > 0 ? n : 0] = '\0';
-            close(fdResp);
-            printf("Respuesta del RP: %s\n", buffer);
-        } else {
-            perror("No se pudo leer respuesta del RP");
-        }
-    }
-
-    close(fd);
+    return 1;
 }
 
-// Función principal
 int main(int argc, char *argv[]) {
     char archivoEntrada[100] = "";
-    char rutaPipe[100] = "";
-    int usarArchivo = 0;
+    char pipeReceptor[100] = "";
 
-    if (argc < 3) {
-        fprintf(stderr, "Uso: %s [-i archivo] -p pipe\n", argv[0]);
-        return 1;
-    }
-
+    // Procesar argumentos
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) {
             strcpy(archivoEntrada, argv[++i]);
-            usarArchivo = 1;
         } else if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
-            strcpy(rutaPipe, argv[++i]);
+            strcpy(pipeReceptor, argv[++i]);
+        } else {
+            fprintf(stderr, "Uso: %s [-i archivoEntrada] -p pipeReceptor\n", argv[0]);
+            return 1;
         }
     }
 
-    if (strlen(rutaPipe) == 0) {
-        fprintf(stderr, "Error: debe especificar -p pipe\n");
+    if (pipeReceptor[0] == '\0') {
+        fprintf(stderr, "Error: No se especifico el pipe receptor.\n");
         return 1;
     }
 
-    char pipeRespuesta[MAX_PIPE];
-    snprintf(pipeRespuesta, MAX_PIPE, "pipeRespuesta_%d", getpid());
-    if (mkfifo(pipeRespuesta, 0666) == -1 && errno != EEXIST) {
-        perror("Error creando pipe de respuesta");
-        return 1;
-    }
+    Mensaje mensajes[100];
+    int cantidad = 0;
 
-    if (usarArchivo) {
-        leerDesdeArchivo(archivoEntrada, rutaPipe, pipeRespuesta);
+    if (archivoEntrada[0] != '\0') {
+        printf("[PS] Leyendo solicitudes desde archivo: %s\n", archivoEntrada);
+        if (leerDesdeArchivo(archivoEntrada, mensajes, &cantidad) == -1) return 1;
+
+        for (int i = 0; i < cantidad; i++) {
+            Mensaje msg = mensajes[i];
+            snprintf(msg.pipeRespuesta, sizeof(msg.pipeRespuesta), "pipeRespuesta_%d", getpid());
+            unlink(msg.pipeRespuesta); // borrar si ya existe
+            mkfifo(msg.pipeRespuesta, 0666);
+
+            int fd = open(pipeReceptor, O_WRONLY);
+            if (fd != -1) {
+                write(fd, &msg, sizeof(Mensaje));
+                close(fd);
+            }
+
+            fd = open(msg.pipeRespuesta, O_RDONLY);
+            if (fd != -1) {
+                char buffer[256];
+                int n = read(fd, buffer, sizeof(buffer) - 1);
+                if (n > 0) {
+                    buffer[n] = '\0';
+                    printf("Respuesta del RP: %s\n", buffer);
+                }
+                close(fd);
+            }
+
+            unlink(msg.pipeRespuesta); // limpiar pipeRespuesta al final
+        }
     } else {
-        leerDesdeMenu(rutaPipe, pipeRespuesta);
+        printf("[PS] Iniciando menu interactivo...\n");
+        while (1) {
+            Mensaje msg;
+            if (!leerDesdeMenu(&msg)) {
+                snprintf(msg.pipeRespuesta, sizeof(msg.pipeRespuesta), "pipeRespuesta_%d", getpid());
+                unlink(msg.pipeRespuesta);
+                mkfifo(msg.pipeRespuesta, 0666);
+
+                int fd = open(pipeReceptor, O_WRONLY);
+                if (fd != -1) {
+                    write(fd, &msg, sizeof(Mensaje));
+                    close(fd);
+                }
+                printf("Comando de salida enviado. Esperando confirmacion...\n");
+
+                fd = open(msg.pipeRespuesta, O_RDONLY);
+                if (fd != -1) {
+                    char buffer[256];
+                    int n = read(fd, buffer, sizeof(buffer) - 1);
+                    if (n > 0) {
+                        buffer[n] = '\0';
+                        printf("Respuesta del RP: %s\n", buffer);
+                    }
+                    close(fd);
+                }
+
+                unlink(msg.pipeRespuesta);
+                break;
+            }
+
+            snprintf(msg.pipeRespuesta, sizeof(msg.pipeRespuesta), "pipeRespuesta_%d", getpid());
+            unlink(msg.pipeRespuesta);
+            mkfifo(msg.pipeRespuesta, 0666);
+
+            int fd = open(pipeReceptor, O_WRONLY);
+            if (fd != -1) {
+                write(fd, &msg, sizeof(Mensaje));
+                close(fd);
+            }
+
+            fd = open(msg.pipeRespuesta, O_RDONLY);
+            if (fd != -1) {
+                char buffer[256];
+                int n = read(fd, buffer, sizeof(buffer) - 1);
+                if (n > 0) {
+                    buffer[n] = '\0';
+                    printf("Respuesta del RP: %s\n", buffer);
+                }
+                close(fd);
+            }
+
+            unlink(msg.pipeRespuesta); // borrar después de leer
+        }
     }
 
     return 0;
