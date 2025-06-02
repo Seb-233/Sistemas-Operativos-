@@ -7,39 +7,13 @@
 extern char archivoSalida[];
 extern int verboseFlag;
 
-#define MAX_LIBRO 100
-#define MAX_ISBN 20
-#define MAX_FECHA 20
-#define MAX_REGISTROS 1000
-
-typedef struct {
-    char tipo; // 'P', 'R', 'D'
-    char nombreLibro[MAX_LIBRO];
-    char isbn[MAX_ISBN];
-    int ejemplar;
-    char fecha[MAX_FECHA];
-} RegistroOperacion;
-
-extern RegistroOperacion historial[MAX_REGISTROS];
-extern int total_registros;
+void guardarEstadoFinal(const char *archivoSalida); // ya implementado en receptor.c
 
 void generarReporte() {
-    printf("\n--- Reporte de operaciones realizadas ---\n");
-    printf("Tipo, Nombre del Libro, ISBN, Ejemplar, Fecha\n");
-
-    for (int i = 0; i < total_registros; i++) {
-        RegistroOperacion r = historial[i];
-        printf("%c, %s, %s, %d, %s\n", r.tipo, r.nombreLibro, r.isbn, r.ejemplar, r.fecha);
-    }
-
-    if (total_registros == 0) {
-        printf("(Sin operaciones registradas)\n");
-    }
-
-    printf("------------------------------------------\n");
+    printf("\n--- Reporte de operaciones ---\n");
+    printf("Esta funcionalidad se puede personalizar si se desea mostrar datos reales.\n");
+    printf("--------------------------------\n");
 }
-
-void guardarEstadoFinal(const char *archivoSalida); // ya implementado en receptor.c
 
 void *hiloAuxiliar2(void *arg) {
     char comando[10];
