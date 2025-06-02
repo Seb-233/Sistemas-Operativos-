@@ -29,6 +29,10 @@ int leerDesdeArchivo(const char *nombreArchivo, Mensaje *mensajes, int *cantidad
         Mensaje msg;
         if (sscanf(linea, " %c, %99[^,], %d, %d", &msg.operacion, msg.nombreLibro, &msg.isbn, &msg.ejemplar) == 4) {
             mensajes[i++] = msg;
+        } else if (sscanf(linea, " %c, %99[^,], %d", &msg.operacion, msg.nombreLibro, &msg.isbn) == 3) {
+            // Si el archivo no tiene 'ejemplar', se asume 1
+            msg.ejemplar = 1;
+            mensajes[i++] = msg;
         }
     }
     fclose(archivo);
@@ -40,9 +44,7 @@ int leerDesdeMenu(Mensaje *msg) {
     printf("\nIngrese operación (D: Devolver, R: Renovar, P: Prestar, Q: Salir): ");
     scanf(" %c", &msg->operacion);
 
-    if (msg->operacion == 'Q') {
-        return 0;
-    }
+    if (msg->operacion == 'Q') return 0;
 
     printf("Nombre del libro: ");
     scanf(" %s", msg->nombreLibro);
@@ -55,17 +57,33 @@ int leerDesdeMenu(Mensaje *msg) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 3 || strcmp(argv[1], "-p") != 0) {
-        fprintf(stderr, "Uso: %s -p pipeReceptor\n", argv[0]);
+    char archivoEntrada[100] = "";
+    char pipeReceptor[100] = "";
+
+    // Procesamiento de argumentos
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-i") == 0 && i + 1 < argc) {
+            strcpy(archivoEntrada, argv[++i]);
+        } else if (strcmp(argv[i], "-p") == 0 && i + 1 < argc) {
+            strcpy(pipeReceptor, argv[++i]);
+        } else {
+            fprintf(stderr, "Uso: %s [-i archivoEntrada] -p pipeReceptor\n", argv[0]);
+            return 1;
+        }
+    }
+
+    if (pipeReceptor[0] == '\0') {
+        fprintf(stderr, "Error: No se especificó el pipe receptor.\n");
         return 1;
     }
 
-    char *pipeReceptor = argv[2];
     Mensaje mensajes[100];
     int cantidad = 0;
 
-    if (access("entrada.txt", F_OK) == 0) {
-        leerDesdeArchivo("entrada.txt", mensajes, &cantidad);
+    if (archivoEntrada[0] != '\0') {
+        printf("[PS] Leyendo solicitudes desde archivo: %s\n", archivoEntrada);
+        if (leerDesdeArchivo(archivoEntrada, mensajes, &cantidad) == -1) return 1;
+
         for (int i = 0; i < cantidad; i++) {
             Mensaje msg = mensajes[i];
             snprintf(msg.pipeRespuesta, sizeof(msg.pipeRespuesta), "pipeRespuesta_%d", getpid());
@@ -92,9 +110,11 @@ fflush(stdout);
             }
         }
     } else {
+        printf("[PS] Iniciando menú interactivo...\n");
         while (1) {
             Mensaje msg;
             if (!leerDesdeMenu(&msg)) {
+                // Enviar mensaje de salida
                 snprintf(msg.pipeRespuesta, sizeof(msg.pipeRespuesta), "pipeRespuesta_%d", getpid());
                 mkfifo(msg.pipeRespuesta, 0666);
                 int fd = open(pipeReceptor, O_WRONLY);
