@@ -48,9 +48,7 @@ void generarReporte() {
 void *hiloAuxiliar2(void *arg) {
     char comando[10];
 
-    if (verboseFlag) {
-        printf("[Hilo2] Habilitado. Use 'r' para reporte o 's' para salir.\n");
-    }
+    printf("Use 'r' para reporte o 's' para salir.\n");
 
     while (1) {
         printf("> ");
