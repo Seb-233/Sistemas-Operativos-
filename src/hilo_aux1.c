@@ -117,7 +117,9 @@ void *hiloAuxiliar1(void *arg) {
     BufferCircular *buffer = (BufferCircular *)arg;
     while (1) {
         Mensaje m = sacarBuffer(buffer);
-        printf("[Hilo1] Procesando solicitud %c para libro '%s' (ISBN %d) ejemplar %d\n", m.operacion, m.nombreLibro, m.isbn, m.ejemplar);
+        if (verboseFlag) {
+    printf("[Hilo1] Procesando solicitud %c para libro '%s' (ISBN %d) ejemplar %d\n", m.operacion, m.nombreLibro, m.isbn, m.ejemplar);
+        }
 
         if (verboseFlag) {
             printf("[Verbose] Extrayendo solicitud del buffer para operación %c.\n", m.operacion);
