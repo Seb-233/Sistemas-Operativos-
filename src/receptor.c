@@ -53,6 +53,10 @@ void enviarRespuesta(const char *pipeRespuesta, const char *mensaje) {
     }
 }
 
+RegistroOperacion historial[MAX_REGISTROS];
+int total_registros = 0;
+
+
 int main(int argc, char *argv[]) {
     char rutaPipe[100] = "";
     char nombreArchivoDatos[100] = "base_datos.txt";
