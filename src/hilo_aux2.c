@@ -4,60 +4,66 @@
 #include <unistd.h>
 #include "hilo_aux2.h"
 
-extern int sistemaActivo;
 extern char archivoSalida[];
-void guardarEstadoFinal(const char *archivoSalida);
+extern int verboseFlag;
+
+#define MAX_LIBRO 100
+#define MAX_ISBN 20
+#define MAX_FECHA 20
+#define MAX_REGISTROS 1000
+
+typedef struct {
+    char tipo; // 'P', 'R', 'D'
+    char nombreLibro[MAX_LIBRO];
+    char isbn[MAX_ISBN];
+    int ejemplar;
+    char fecha[MAX_FECHA];
+} RegistroOperacion;
+
+extern RegistroOperacion historial[MAX_REGISTROS];
+extern int total_registros;
 
 void generarReporte() {
-    FILE *f = fopen("base_datos.txt", "r");
-    if (!f) {
-        perror("[Hilo2] No se pudo abrir base_datos.txt");
-        return;
+    printf("\n--- Reporte de operaciones realizadas ---\n");
+    printf("Tipo, Nombre del Libro, ISBN, Ejemplar, Fecha\n");
+
+    for (int i = 0; i < total_registros; i++) {
+        RegistroOperacion r = historial[i];
+        printf("%c, %s, %s, %d, %s\n", r.tipo, r.nombreLibro, r.isbn, r.ejemplar, r.fecha);
     }
 
-    char linea[256];
-    char nombreLibro[50];
-    int isbn, total = 0;
-
-    printf("\n📋 REPORTE DEL SISTEMA:\n----------------------------\n");
-
-    // Primera línea: nombre, isbn, total
-    if (fgets(linea, sizeof(linea), f)) {
-        sscanf(linea, "%[^,], %d, %d", nombreLibro, &isbn, &total);
-        printf("Libro: %s\nISBN: %d\nTotal ejemplares: %d\n", nombreLibro, isbn, total);
+    if (total_registros == 0) {
+        printf("(Sin operaciones registradas)\n");
     }
 
-    // Resto: ejemplares
-    int ejemplar;
-    char estado, fecha[20];
-    while (fgets(linea, sizeof(linea), f)) {
-        if (sscanf(linea, "%d, %c, %s", &ejemplar, &estado, fecha) == 3) {
-            printf("Ejemplar %d → Estado: %c → Fecha: %s\n", ejemplar, estado, fecha);
-        }
-    }
-
-    printf("----------------------------\n");
-    fclose(f);
+    printf("------------------------------------------\n");
 }
+
+void guardarEstadoFinal(const char *archivoSalida); // ya implementado en receptor.c
 
 void *hiloAuxiliar2(void *arg) {
     char comando[10];
 
-    while (sistemaActivo) {
-        printf("\n[Hilo2] Ingrese comando ('r' para reporte, 's' para salir): ");
-        fflush(stdout);
+    while (1) {
+        if (verboseFlag)
+            printf("\n[Hilo2] Ingrese comando ('r' para reporte, 's' para salir): ");
+        else
+            printf("> ");
 
-        if (fgets(comando, sizeof(comando), stdin) != NULL) {
-            if (comando[0] == 'r') {
-                generarReporte();
-            } else if (comando[0] == 's') {
-                printf("[Hilo2] Cerrando el sistema...\n");
+        fflush(stdout);
+        fgets(comando, sizeof(comando), stdin);
+
+        if (strncmp(comando, "r", 1) == 0) {
+            generarReporte();
+        } else if (strncmp(comando, "s", 1) == 0) {
+            if (archivoSalida[0] != '\0') {
                 guardarEstadoFinal(archivoSalida);
-                sistemaActivo = 0;
-                exit(0);
-            } else {
-                printf("[Hilo2] Comando no válido.\n");
             }
+            if (verboseFlag)
+                printf("[Hilo2] Finalizando proceso receptor...\n");
+            exit(0);
+        } else {
+            printf("Comando desconocido. Use 'r' o 's'.\n");
         }
     }
 
