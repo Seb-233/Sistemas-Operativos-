@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/stat.h>   // ✅ necesario para mkfifo()
 
 #define MAX_LIBRO 100
 #define MAX_PIPE 100
@@ -71,7 +72,10 @@ int main(int argc, char *argv[]) {
             mkfifo(msg.pipeRespuesta, 0666);
 
             int fd = open(pipeReceptor, O_WRONLY);
-            if (fd != -1) {
+            printf("Intentando abrir pipe receptor: %s\n", pipeReceptor);
+fflush(stdout);
+
+	if (fd != -1) {
                 write(fd, &msg, sizeof(Mensaje));
                 close(fd);
             }
