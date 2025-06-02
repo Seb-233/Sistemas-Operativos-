@@ -20,42 +20,58 @@ void procesarSolicitud(Mensaje m) {
     }
 
     char linea[256];
-    char lineas[100][256];
+    char lineas[1000][256];
     int total = 0;
 
-    // Leer todas las líneas
+    // Leer todo el archivo
     while (fgets(linea, sizeof(linea), f)) {
         strcpy(lineas[total++], linea);
     }
     fclose(f);
 
-    int modificado = 0;
+    int i = 0, modificado = 0, encontrado = 0;
+    while (i < total) {
+        char nombreLibro[100];
+        int isbn, cantidad;
 
-    // Buscar ejemplar exacto y modificar según operación
-    for (int i = 1; i < total; i++) {
-        int ejemplar;
-        char estado, fecha[20];
+        if (sscanf(lineas[i], " %99[^,], %d, %d", nombreLibro, &isbn, &cantidad) == 3) {
+            if (strcmp(nombreLibro, m.nombreLibro) == 0 && isbn == m.isbn) {
+                encontrado = 1;
+                // Buscar entre las siguientes 'cantidad' líneas
+                for (int j = 1; j <= cantidad && (i + j) < total; j++) {
+                    int ejemplar;
+                    char estado, fecha[20];
 
-        if (sscanf(lineas[i], "%d, %c, %s", &ejemplar, &estado, fecha) == 3) {
-            if (ejemplar == m.ejemplar) {
-                if (estado == 'D' && m.operacion == 'P') {
-                    snprintf(lineas[i], sizeof(lineas[i]), "%d, P, 01-06-2024\n", ejemplar);
-                    modificado = 1;
-                    break;
-                } else if (estado == 'P' && m.operacion == 'R') {
-                    snprintf(lineas[i], sizeof(lineas[i]), "%d, R, 02-06-2024\n", ejemplar);
-                    modificado = 1;
-                    break;
-                } else if ((estado == 'P' || estado == 'R') && m.operacion == 'D') {
-                    snprintf(lineas[i], sizeof(lineas[i]), "%d, D, 03-06-2024\n", ejemplar);
-                    modificado = 1;
-                    break;
+                    if (sscanf(lineas[i + j], "%d, %c, %s", &ejemplar, &estado, fecha) == 3) {
+                        if (ejemplar == m.ejemplar) {
+                            // Verificar operación y estado
+                            if (estado == 'D' && m.operacion == 'P') {
+                                snprintf(lineas[i + j], sizeof(lineas[i + j]), "%d, P, 01-06-2025\n", ejemplar);
+                                modificado = 1;
+                            } else if (estado == 'P' && m.operacion == 'R') {
+                                snprintf(lineas[i + j], sizeof(lineas[i + j]), "%d, R, 01-06-2025\n", ejemplar);
+                                modificado = 1;
+                            } else if ((estado == 'P' || estado == 'R') && m.operacion == 'D') {
+                                snprintf(lineas[i + j], sizeof(lineas[i + j]), "%d, D, 01-06-2025\n", ejemplar);
+                                modificado = 1;
+                            }
+                            break;
+                        }
+                    }
                 }
+                break;
             }
         }
+        i++;
     }
 
-    // Guardar archivo
+    if (!encontrado) {
+        printf("[Hilo1] El libro '%s' con ISBN %d no existe en la base de datos.\n", m.nombreLibro, m.isbn);
+    } else if (!modificado) {
+        printf("[Hilo1] El ejemplar %d no se encontró o no se pudo modificar por estado inválido.\n", m.ejemplar);
+    }
+
+    // Guardar cambios
     f = fopen("base_datos.txt", "w");
     for (int i = 0; i < total; i++) {
         fputs(lineas[i], f);
@@ -63,14 +79,12 @@ void procesarSolicitud(Mensaje m) {
     fclose(f);
 
     if (modificado) {
-        printf("[Hilo1] Solicitud %c procesada para '%s' (ejemplar %d).\n", m.operacion, m.nombreLibro, m.ejemplar);
-        if (verboseFlag) {
-            printf("[Verbose] Estado de base_datos.txt actualizado tras operación %c.\n", m.operacion);
-        }
-    } else {
-        printf("[Hilo1] El ejemplar %d no se encontró o no está disponible para la operación '%c'.\n", m.ejemplar, m.operacion);
+        printf("[Hilo1] Solicitud %c procesada para '%s' (ISBN %d), ejemplar %d.\n", m.operacion, m.nombreLibro, m.isbn, m.ejemplar);
+        if (verboseFlag)
+            printf("[Verbose] Estado de base_datos.txt actualizado correctamente.\n");
     }
 }
+
 
 void *hiloAuxiliar1(void *arg) {
     BufferCircular *buffer = (BufferCircular *)arg;
