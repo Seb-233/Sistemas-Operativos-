@@ -43,18 +43,31 @@ int leerDesdeArchivo(const char *nombreArchivo, Mensaje *mensajes, int *cantidad
 int leerDesdeMenu(Mensaje *msg) {
     printf("\nIngrese operacion (D: Devolver, R: Renovar, P: Prestar, Q: Salir): ");
     scanf(" %c", &msg->operacion);
+    while (getchar() != '\n');
+
+    if (msg->operacion != 'D' && msg->operacion != 'R' &&
+        msg->operacion != 'P' && msg->operacion != 'Q') {
+        printf("[PS] Operacion no valida. Debe ser D, R, P o Q.\n");
+        return leerDesdeMenu(msg);
+    }
 
     if (msg->operacion == 'Q') return 0;
 
     printf("Nombre del libro: ");
-    scanf(" %s", msg->nombreLibro);
+    fgets(msg->nombreLibro, sizeof(msg->nombreLibro), stdin);
+    msg->nombreLibro[strcspn(msg->nombreLibro, "\n")] = '\0';
+
     printf("ISBN: ");
     scanf("%d", &msg->isbn);
+
     printf("Ejemplar: ");
     scanf("%d", &msg->ejemplar);
+    while (getchar() != '\n');
 
     return 1;
 }
+
+
 
 int main(int argc, char *argv[]) {
     char archivoEntrada[100] = "";
