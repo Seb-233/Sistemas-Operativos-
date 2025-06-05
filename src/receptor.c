@@ -105,41 +105,48 @@ int main(int argc, char *argv[]) {
 
     Mensaje msg;
     while (1) {
-        ssize_t n = read(fd, &msg, sizeof(Mensaje));
-        if (n == sizeof(Mensaje)) {
-            if (verboseFlag) {
-                printf("\nSolicitud recibida:\n");
-                printf("Operacion: %c\n", msg.operacion);
-                printf("Libro: %s\n", msg.nombreLibro);
-                printf("ISBN: %d\n", msg.isbn);
-                printf("Ejemplar: %d\n", msg.ejemplar);
-                printf("Responder a: %s\n", msg.pipeRespuesta);
-            }
+    ssize_t n = read(fd, &msg, sizeof(Mensaje));
 
-            switch (msg.operacion) {
-                case 'P':
-                case 'D':
-                case 'R':
-                    insertarBuffer(&bufferGlobal, msg);
-                    break;
-                case 'Q':
-                    enviarRespuesta(msg.pipeRespuesta, "Fin de sesion del solicitante.");
-                    break;
-                default:
-                    enviarRespuesta(msg.pipeRespuesta, "Operacion no reconocida.");
-                    break;
-            }
-        } else if (n == 0) {
-            if (verboseFlag)
-                printf("Pipe cerrado por el otro extremo. Esperando nuevos solicitantes...\n");
-            close(fd);
-            close(dummy);
-            fd = open(rutaPipe, O_RDONLY);
-            dummy = open(rutaPipe, O_WRONLY);
-        } else {
-            perror("Error al leer del pipe");
+    // Si read() devuelve 0, significa que ningún PS está escribiendo
+    if (n == 0) {
+        if (verboseFlag) {
+            printf("[RP] No hay PS escribiendo. Reabriendo pipe...\n");
         }
+        close(fd);
+        close(dummy);
+
+        // Reabrir el pipe (espera bloqueante hasta que un PS se conecte)
+        fd = open(rutaPipe, O_RDONLY);
+        dummy = open(rutaPipe, O_WRONLY);
+        continue;
     }
+
+    // Si read() falla por otro motivo
+    if (n == -1) {
+        perror("[RP] Error al leer del pipe");
+        continue;
+    }
+
+    // Procesar mensaje válido
+    if (verboseFlag) {
+        printf("[RP] Mensaje recibido: %c - %s\n", msg.operacion, msg.nombreLibro);
+    }
+
+    switch (msg.operacion) {
+        case 'P':
+        case 'D':
+        case 'R':
+            insertarBuffer(&bufferGlobal, msg);
+            break;
+        case 'Q':
+            enviarRespuesta(msg.pipeRespuesta, "Fin de sesión. Gracias.");
+            break;
+        default:
+            enviarRespuesta(msg.pipeRespuesta, "Operación no reconocida.");
+            break;
+    }
+}
+
 
     close(fd);
     close(dummy);
